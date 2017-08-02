@@ -17,10 +17,17 @@
 package com.example.android.todolist.data;
 
 import android.content.ContentProvider;
+import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.UriMatcher;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.support.annotation.NonNull;
+
+import static com.example.android.todolist.data.TaskContract.TaskEntry.CONTENT_URI;
+import static com.example.android.todolist.data.TaskContract.TaskEntry.TABLE_NAME;
 
 // TODO (1) Verify that TaskContentProvider extends from ContentProvider and implements required methods
 public class TaskContentProvider extends ContentProvider {
@@ -31,11 +38,24 @@ public class TaskContentProvider extends ContentProvider {
     In this case, you’re working with a SQLite database, so you’ll need to
     initialize a DbHelper to gain access to it.
      */
+
+    public final static int TASKS           = 100;
+    public final static int TASKS_WITH_ID   = 101;
+    private TaskDbHelper mTaskDbHelper ;
+    private static UriMatcher  sUriMatcher = buildUriMatcher();
+
+    public static UriMatcher buildUriMatcher() {
+        UriMatcher uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+        uriMatcher.addURI(TaskContract.AUTHORITY,TaskContract.PATH_TASK,TASKS);
+        uriMatcher.addURI(TaskContract.AUTHORITY,TaskContract.PATH_TASK + "/#",TASKS_WITH_ID);
+        return uriMatcher;
+    }
     @Override
     public boolean onCreate() {
         // TODO (2) Complete onCreate() and initialize a TaskDbhelper on startup
         // [Hint] Declare the DbHelper as a global variable
-
+        Context context = getContext();
+        mTaskDbHelper = new TaskDbHelper(context);
         //TaskDbHelper taskDbHelper= new TaskDbHelper();
 
        // taskDbHelper.
@@ -45,8 +65,22 @@ public class TaskContentProvider extends ContentProvider {
 
     @Override
     public Uri insert(@NonNull Uri uri, ContentValues values) {
+        final SQLiteDatabase db = mTaskDbHelper.getWritableDatabase();
+        int match = sUriMatcher.match(uri);
+        Uri returnUri = null;
+        switch (match){
+            case TASKS :
+               long id =  db.insert(TaskContract.TaskEntry.TABLE_NAME,null,values);
+                if (id > 0){
+                    returnUri =  ContentUris.withAppendedId(TaskContract.TaskEntry.CONTENT_URI,id);
+                }
+                break;
+            default:
+                throw new UnsupportedOperationException("Unknolwn Uri" + uri);
+        }
 
-        throw new UnsupportedOperationException("Not yet implemented");
+        getContext().getContentResolver().notifyChange(uri,null);
+        return returnUri;
     }
 
 
